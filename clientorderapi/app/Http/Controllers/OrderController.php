@@ -6,9 +6,18 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Session;
+use PhpParser\Node\Stmt\ElseIf_;
 
 class OrderController extends Controller
 {
+
+    private $cities = [
+        ['name' => 'TULUA', 'value' => 'TULUA'],
+        ['name' => 'CALI', 'value' => 'CALI'],
+        ['name' => 'BUGA', 'value' => 'BUGA'],
+        ['name' => 'PALMIRA', 'value' => 'PALMIRA']
+    ];
+
     /**
      * Display a listing of the resource.
      */
@@ -28,19 +37,20 @@ class OrderController extends Controller
      */
     public function create()
     {
-        $url = env('URL_BASE_API',"http://localhost:8000");
-        $responseTechnicians = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/technician');
-        $responseTypes = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/type_order');
-        if($responseTechnicians->successful() and $responseTypes->successful()){
-
-            $technicians = $responseTechnicians->json();
-            $types = $responseTypes->json();
-            return view('order.create',compact('observations','causals'));
+        $url = env('URL_BASE_API', "http://localhost:8000");
+        $responseCausals = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/causal');
+        $responseObservations = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/observation');
+        if($responseCausals->successful() and $responseObservations->successful())
+        {
+            $causals = $responseCausals->json();
+            $observations = $responseObservations->json();
+            $cities = $this->cities;  
+            return view('order.create', compact('causals', 'observations', 'cities'));
         }
         else
         {
-            abort($responseTechnicians->status());
-        }    
+            abort($responseCausals->status());
+        }
     }
 
     /**
@@ -94,12 +104,14 @@ class OrderController extends Controller
             {
                 $responseObservations = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/observation');
                 $responseCausals = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/causal');
-                if($responseObservations->successful() and $responseCausals->successful()){
-                $observations = $responseObservations->json();
-                $causals = $responseCausals->json();   
-                $order = $response->json();
-                return view('order.edit', compact('order','observations','causals'));
-            }
+                if($responseObservations->successful() and $responseCausals->successful())
+                {
+                    $observations = $responseObservations->json();
+                    $causals = $responseCausals->json();   
+                    $order = $response->json();
+                    $cities = $this->cities; 
+                return view('order.edit', compact('order','observations','causals', 'cities'));
+                }
         }
             elseif($response->status() == Response::HTTP_BAD_REQUEST)
             {
@@ -173,8 +185,56 @@ class OrderController extends Controller
     }
 
     public function add_activity(string $order_id, string $activity_id){
-        
+
+        $url = env('URL_BASE_API',"http://localhost:8000");
+        $responseOrder = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/order/'.$order_id);
+        $responseActivity = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/activity/'.$activity_id);
+        if($responseOrder->successful() and $responseActivity->successful())
+        {
+            $response = Http::acceptJson()->withToken(Session::get('token'))
+                                            ->get($url . '/order/add_activity/'.$order_id . '/' . $activity_id);
+            
+            if($response->successful())
+            {
+                session()->flash('message', 'Actividad agregada exitosamente');
+            }
+            else
+            {
+                session()->flash('error', 'Error agregando la actividad');
+            }
+            
+            return redirect()->route('order.edit', $order_id);
+        }
+        else
+        {
+            abort($responseOrder->status());
+        }
     }
 
-    
+    public function remove_activity(string $order_id, string $activity_id){
+
+        $url = env('URL_BASE_API',"http://localhost:8000");
+        $responseOrder = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/order/'.$order_id);
+        $responseActivity = Http::acceptJson()->withToken(Session::get('token'))->get($url . '/activity/'.$activity_id);
+        if($responseOrder->successful() and $responseActivity->successful())
+        {
+            $response = Http::acceptJson()->withToken(Session::get('token'))
+                                            ->get($url . '/order/aremove_activity/'.$order_id . '/' . $activity_id);
+            
+            if($response->successful())
+            {
+                session()->flash('message', 'Actividad removida exitosamente');
+            }
+            else
+            {
+                session()->flash('error', 'Error removiendo la actividad');
+            }
+            
+            return redirect()->route('order.edit', $order_id);
+        }
+        else
+        {
+            abort($responseOrder->status());
+        }
+    }
 }
